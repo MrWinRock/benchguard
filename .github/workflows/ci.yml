@@ -4,6 +4,11 @@ on:
   pull_request:
   push:
   workflow_call:
+    inputs:
+      source_ref:
+        description: Git ref to check out when called by a release workflow
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -26,6 +31,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.source_ref }}
       - name: Install stable Rust
         run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
       - name: Select stable Rust
@@ -61,6 +68,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.source_ref }}
       - name: Read declared MSRV
         shell: bash
         run: |
@@ -87,6 +96,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.source_ref }}
       - name: Install stable Rust
         run: rustup toolchain install stable --profile minimal
       - name: Select stable Rust

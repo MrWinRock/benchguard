@@ -343,7 +343,7 @@ for (const command of ["view", "upload", "create"]) {
   assert.match(
     release,
     new RegExp(
-      `gh release ${command}[^\\n]*--repo "\\\\$GITHUB_REPOSITORY"`,
+      `gh release ${command}[^\\n]*--repo "\\$GITHUB_REPOSITORY"`,
     ),
     `gh release ${command} must have explicit repository context`,
   );
