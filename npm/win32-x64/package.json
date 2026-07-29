@@ -1,0 +1,21 @@
+{
+  "name": "@benchguard/win32-x64",
+  "version": "0.1.0",
+  "description": "BenchGuard native binary for Windows x64",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "benchguard.exe",
+    "README.md",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT OR Apache-2.0"
+}

@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  BENCHGUARD_GITHUB_SERVER_URL: ${{ github.server_url }}
+  BENCHGUARD_GITHUB_REPOSITORY: ${{ github.repository }}
+
+jobs:
+  quality:
+    name: Stable / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install stable Rust
+        run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
+      - name: Select stable Rust
+        run: rustup default stable
+      - name: Check formatting
+        run: cargo fmt --check
+      - name: Lint every target
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test workspace
+        run: cargo test --workspace --locked
+      - name: Build workspace
+        run: cargo build --workspace --locked
+      - name: Validate documentation, links, samples, and package contents
+        run: node .github/scripts/test-doc-contract.mjs
+      - name: Validate README acceptance outcomes
+        run: node scripts/test-readme-acceptance.mjs
+      - name: Execute the README quick start
+        run: node scripts/readme-acceptance.mjs
+      - name: Validate release automation contract
+        run: node .github/scripts/test-release-contract.mjs
+      - name: Repeat real Linux process-group reliability tests
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          for attempt in 1 2 3 4 5; do
+            echo "Linux reliability run ${attempt}/5"
+            cargo test --test failures linux_ -- --nocapture
+          done
+
+  msrv:
+    name: Declared MSRV compile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Read declared MSRV
+        shell: bash
+        run: |
+          msrv="$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml)"
+          test -n "$msrv"
+          echo "MSRV=$msrv" >> "$GITHUB_ENV"
+      - name: Install declared MSRV
+        run: rustup toolchain install ${{ env.MSRV }} --profile minimal
+      - name: Compile every target with declared MSRV
+        run: cargo +${{ env.MSRV }} check --workspace --all-targets --locked
+
+  npm-launcher:
+    name: Packed npm / ${{ matrix.os }} / Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+        node:
+          - 18
+          - lts/*
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install stable Rust
+        run: rustup toolchain install stable --profile minimal
+      - name: Select stable Rust
+        run: rustup default stable
+      - name: Install Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - name: Build native CLI and fixture
+        run: cargo build --workspace --locked
+      - name: Exercise native launcher behavior
+        run: node npm/test-launcher.mjs
+      - name: Pack and install the platform launcher
+        shell: bash
+        run: |
+          set -euo pipefail
+          runner_temp="$RUNNER_TEMP"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            runner_temp="$(cygpath -u "$RUNNER_TEMP")"
+            native_directory="npm/win32-x64"
+            executable="benchguard.exe"
+            package_glob="benchguard-win32-x64-*.tgz"
+          else
+            native_directory="npm/linux-x64"
+            executable="benchguard"
+            package_glob="benchguard-linux-x64-*.tgz"
+          fi
+
+          cp "target/debug/$executable" "$native_directory/$executable"
+          if [[ "$RUNNER_OS" != "Windows" ]]; then
+            chmod 755 "$native_directory/$executable"
+          fi
+          cp README.md LICENSE-MIT LICENSE-APACHE npm/cli/
+          trap 'rm -f "$native_directory/$executable" npm/cli/README.md npm/cli/LICENSE-MIT npm/cli/LICENSE-APACHE' EXIT
+          node .github/scripts/prepare-npm-manifests.mjs
+
+          pack_directory="$runner_temp/benchguard-packs"
+          install_directory="$runner_temp/benchguard-global"
+          local_directory="$runner_temp/benchguard-local"
+          mkdir -p "$pack_directory" "$local_directory"
+          npm pack "./$native_directory" --pack-destination "$pack_directory"
+          npm pack ./npm/cli --pack-destination "$pack_directory"
+
+          native_package="$(find "$pack_directory" -name "$package_glob" -print -quit)"
+          cli_package="$(find "$pack_directory" -name 'benchguard-cli-*.tgz' -print -quit)"
+          test -n "$native_package"
+          test -n "$cli_package"
+
+          npm install --global --prefix "$install_directory" "$native_package" "$cli_package"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            node "$install_directory/node_modules/@benchguard/cli/bin/benchguard.js" --version
+          else
+            "$install_directory/bin/benchguard" --version
+          fi
+
+          cd "$local_directory"
+          npm install "$native_package" "$cli_package"
+          npx --no-install benchguard help

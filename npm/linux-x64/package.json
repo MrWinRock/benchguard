@@ -1,0 +1,21 @@
+{
+  "name": "@benchguard/linux-x64",
+  "version": "0.1.0",
+  "description": "BenchGuard native binary for Linux x64",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "benchguard",
+    "README.md",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT OR Apache-2.0"
+}
