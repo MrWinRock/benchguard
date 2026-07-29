@@ -125,6 +125,8 @@ fn linux_allocation_reports_at_least_thirty_mibibytes() {
 #[test]
 fn linux_timeout_exits_two_and_leaves_no_fixture_sleeper() {
     let fixture = fixture_path();
+    let pid_dir = tempfile::tempdir().unwrap();
+    let pid_path = pid_dir.path().join("timeout-sleeper.pid");
     let project = TestProject::new();
     project
         .command()
@@ -141,14 +143,19 @@ fn linux_timeout_exits_two_and_leaves_no_fixture_sleeper() {
         ])
         .arg(&fixture)
         .arg("spawn-sleeper")
+        .arg(&pid_path)
         .assert()
         .failure()
         .code(2)
         .stderr(predicate::str::contains("timed out"));
+    let sleeper_pid = fs::read_to_string(&pid_path)
+        .unwrap()
+        .parse::<u32>()
+        .unwrap();
 
     thread::sleep(Duration::from_millis(25));
     assert!(
-        !fixture_sleeper_exists(&fixture),
+        !fixture_sleeper_exists(sleeper_pid, &fixture),
         "fixture sleeper survived timeout cleanup"
     );
 }
