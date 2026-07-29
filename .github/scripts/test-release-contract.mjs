@@ -360,6 +360,16 @@ assert.match(
   "Cargo publication must follow npm publication",
 );
 assert.doesNotMatch(release, /secrets\.NPM_TOKEN/);
+assert.match(
+  release,
+  /cargo info "benchguard@\$version" --registry crates-io/,
+  "Cargo publication must check the registry through Cargo's supported client",
+);
+assert.doesNotMatch(
+  release,
+  /https:\/\/crates\.io\/api\/v1\/crates\/benchguard/,
+  "Cargo publication must not probe the crates.io web API directly",
+);
 assert.equal(
   release.match(/node \.github\/scripts\/prepare-npm-manifests\.mjs/g)?.length,
   2,

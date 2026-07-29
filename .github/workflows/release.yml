@@ -307,11 +307,8 @@ jobs:
         shell: bash
         run: |
           version="${BENCHGUARD_RELEASE_TAG#v}"
-          status="$(curl --silent --show-error --output /dev/null \
-            --write-out '%{http_code}' \
-            "https://crates.io/api/v1/crates/benchguard/${version}")"
-          case "$status" in
-            200) echo "benchguard@$version already exists; skipping." ;;
-            404) cargo publish --locked ;;
-            *) echo "crates.io returned HTTP $status" >&2; exit 1 ;;
-          esac
+          if cargo info "benchguard@$version" --registry crates-io >/dev/null 2>&1; then
+            echo "benchguard@$version already exists; skipping."
+          else
+            cargo publish --locked
+          fi
