@@ -165,12 +165,12 @@ Examples:
 #[test]
 fn version_is_available_under_every_subcommand() {
     for (args, expected) in [
-        (["record", "-V"].as_slice(), "benchguard-record 0.1.1\n"),
+        (["record", "-V"].as_slice(), "benchguard-record 0.1.0\n"),
         (
             ["check", "--version"].as_slice(),
-            "benchguard-check 0.1.1\n",
+            "benchguard-check 0.1.0\n",
         ),
-        (["list", "-V"].as_slice(), "benchguard-list 0.1.1\n"),
+        (["list", "-V"].as_slice(), "benchguard-list 0.1.0\n"),
     ] {
         assert_eq!(help(args), expected);
     }

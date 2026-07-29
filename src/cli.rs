@@ -41,7 +41,7 @@ impl FromStr for PercentBudget {
 #[derive(Debug, Parser)]
 #[command(
     name = "benchguard",
-    version = "0.1.1",
+    version,
     propagate_version = true,
     about = "Record and enforce performance budgets for executable commands",
     after_help = "Notation:\n  <VALUE>   required\n  [VALUE]   optional\n  ...       repeatable\n\nExamples:\n  benchguard record npm-build --max-time +10% npm run build\n  benchguard check npm-build\n  benchguard record bun-build --max-time +10% bun run build\n  benchguard list --format json"
