@@ -14,6 +14,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repository = resolve(fileURLToPath(new URL("../..", import.meta.url)));
+const normalizeLineEndings = (value) => value.replace(/\r\n?/g, "\n");
 const requiredFiles = [
   "README.md",
   "CHANGELOG.md",
@@ -50,7 +51,29 @@ for (const relative of [
   }
 }
 
-const jsonDocumentation = readFileSync(join(repository, "docs/json-format.md"), "utf8");
+const jsonDocumentation = normalizeLineEndings(
+  readFileSync(join(repository, "docs/json-format.md"), "utf8"),
+);
+const readmeDocumentation = normalizeLineEndings(
+  readFileSync(join(repository, "README.md"), "utf8"),
+);
+const crlfReadmeFixture = normalizeLineEndings(
+  readmeDocumentation.replaceAll("\n", "\r\n"),
+);
+assert.ok(
+  crlfReadmeFixture.includes("The separator `--` is\noptional"),
+  "README contract must accept Windows CRLF line endings",
+);
+for (const requiredText of [
+  "benchguard record npm-build --runs 10 --max-time +10% npm run build",
+  "benchguard record bun-build --runs 10 --max-time +10% bun run build",
+  "The separator `--` is\noptional",
+  "`--color auto`",
+  "`NO_COLOR`",
+  "JSON output is never colored and continues to use integer\nnanoseconds and bytes.",
+]) {
+  assert.ok(readmeDocumentation.includes(requiredText), `README.md is missing: ${requiredText}`);
+}
 const jsonBlocks = [...jsonDocumentation.matchAll(/```json\s+([\s\S]*?)```/g)];
 assert.ok(jsonBlocks.length >= 2, "JSON documentation must include baseline and report examples");
 const parsed = jsonBlocks.map(([, body]) => JSON.parse(body));
@@ -111,7 +134,7 @@ const exactHelpLines = new Map([
     "  record  Record or replace a performance baseline",
     "  check   Measure a command and check it against a stored baseline",
     "  list    List stored baselines without running commands",
-    "  -V, --version  Print version",
+    "  -V, --version        Print version",
   ]],
   [["help", "record"], [
     "  -r, --runs <RUNS>              Number of measured executions [default: 10]",

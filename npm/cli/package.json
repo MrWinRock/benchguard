@@ -1,6 +1,6 @@
 {
   "name": "@benchguard/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Performance regression budgets for any command",
   "type": "module",
   "bin": {
@@ -13,8 +13,8 @@
     "LICENSE-APACHE"
   ],
   "optionalDependencies": {
-    "@benchguard/linux-x64": "0.1.0",
-    "@benchguard/win32-x64": "0.1.0"
+    "@benchguard/linux-x64": "0.1.1",
+    "@benchguard/win32-x64": "0.1.1"
   },
   "engines": {
     "node": ">=18"

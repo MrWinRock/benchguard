@@ -150,6 +150,7 @@ jobs:
           npm install --global --prefix "$install_directory" "$native_package" "$cli_package"
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             node "$install_directory/node_modules/@benchguard/cli/bin/benchguard.js" --version
+            powershell.exe -NoProfile -Command '$shim = Join-Path $env:RUNNER_TEMP "benchguard-global\\benchguard.ps1"; $baseline = Join-Path $env:RUNNER_TEMP "benchguard-npm-powershell.json"; & $shim record npm-powershell -r 1 -w 0 -f $baseline node.exe --version; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Remove-Item -LiteralPath $baseline -ErrorAction SilentlyContinue'
           else
             "$install_directory/bin/benchguard" --version
           fi
@@ -157,3 +158,4 @@ jobs:
           cd "$local_directory"
           npm install "$native_package" "$cli_package"
           npx --no-install benchguard help
+          npx --no-install benchguard record npm-local -r 1 -w 0 node --version

@@ -26,7 +26,7 @@ fn top_level_help_is_the_complete_public_contract() {
         "\
 Record and enforce performance budgets for executable commands
 
-Usage: benchguard <COMMAND>
+Usage: benchguard [OPTIONS] <COMMAND>
 
 Commands:
   record  Record or replace a performance baseline
@@ -35,8 +35,20 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+      --color <COLOR>  [default: auto] [possible values: auto, always, never]
+  -h, --help           Print help
+  -V, --version        Print version
+
+Notation:
+  <VALUE>   required
+  [VALUE]   optional
+  ...       repeatable
+
+Examples:
+  benchguard record npm-build --max-time +10% npm run build
+  benchguard check npm-build
+  benchguard record bun-build --max-time +10% bun run build
+  benchguard list --format json
 "
     );
 }
@@ -50,13 +62,14 @@ fn record_help_is_the_complete_public_contract() {
         "\
 Record or replace a performance baseline
 
-Usage: benchguard record [OPTIONS] <NAME> -- <TARGET>...
+Usage: benchguard record [OPTIONS] <NAME> <TARGET>...
 
 Arguments:
   <NAME>       Benchmark name in the baseline
   <TARGET>...  Executable followed by its exact arguments
 
 Options:
+      --color <COLOR>            [default: auto] [possible values: auto, always, never]
   -r, --runs <RUNS>              Number of measured executions [default: 10]
   -w, --warmup <WARMUP>          Number of unmeasured warm-up executions [default: 2]
   -t, --timeout <TIMEOUT>        Maximum duration of each execution, such as 500ms or 2s
@@ -67,6 +80,15 @@ Options:
       --format <FORMAT>          Report format [default: human] [possible values: human, json]
   -h, --help                     Print help
   -V, --version                  Print version
+
+Notation:
+  <VALUE>   required
+  [VALUE]   optional
+  ...       repeatable
+
+Examples:
+  benchguard record npm-build --max-time +10% npm run build
+  benchguard record bun-build --max-time +10% bun run build
 "
     );
 }
@@ -80,13 +102,14 @@ fn check_help_is_the_complete_public_contract() {
         "\
 Measure a command and check it against a stored baseline
 
-Usage: benchguard check [OPTIONS] <NAME> [-- <TARGET>...]
+Usage: benchguard check [OPTIONS] <NAME> [TARGET]...
 
 Arguments:
   <NAME>       Benchmark name in the baseline
   [TARGET]...  Optional executable and arguments; omit to use the stored command
 
 Options:
+      --color <COLOR>            [default: auto] [possible values: auto, always, never]
   -r, --runs <RUNS>              Override the stored measured-run count
   -w, --warmup <WARMUP>          Override the stored warm-up count
   -t, --timeout <TIMEOUT>        Override the stored per-execution timeout
@@ -97,6 +120,14 @@ Options:
       --format <FORMAT>          Report format [default: human] [possible values: human, json]
   -h, --help                     Print help
   -V, --version                  Print version
+
+Notation:
+  <VALUE>   required
+  [VALUE]   optional
+  ...       repeatable
+
+Examples:
+  benchguard check npm-build
 "
     );
 }
@@ -112,10 +143,19 @@ List stored baselines without running commands
 Usage: benchguard list [OPTIONS]
 
 Options:
+      --color <COLOR>    [default: auto] [possible values: auto, always, never]
   -f, --file <FILE>      Path to the baseline JSON file [default: benchguard.json]
       --format <FORMAT>  Report format [default: human] [possible values: human, json]
   -h, --help             Print help
   -V, --version          Print version
+
+Notation:
+  <VALUE>   required
+  [VALUE]   optional
+  ...       repeatable
+
+Examples:
+  benchguard list --format json
 "
     );
 }
@@ -125,12 +165,12 @@ Options:
 #[test]
 fn version_is_available_under_every_subcommand() {
     for (args, expected) in [
-        (["record", "-V"].as_slice(), "benchguard-record 0.1.0\n"),
+        (["record", "-V"].as_slice(), "benchguard-record 0.1.1\n"),
         (
             ["check", "--version"].as_slice(),
-            "benchguard-check 0.1.0\n",
+            "benchguard-check 0.1.1\n",
         ),
-        (["list", "-V"].as_slice(), "benchguard-list 0.1.0\n"),
+        (["list", "-V"].as_slice(), "benchguard-list 0.1.1\n"),
     ] {
         assert_eq!(help(args), expected);
     }

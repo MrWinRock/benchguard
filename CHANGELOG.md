@@ -3,6 +3,18 @@
 All notable changes to BenchGuard are documented here. The project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.1] - 2026-07-29
+
+### Added
+
+- Delimiter-free target commands, adaptive human-readable metric units, color
+  controls, and real npm/Bun examples in the built-in help.
+
+### Fixed
+
+- The npm-generated PowerShell launcher now preserves delimiter-free target
+  commands such as `node.exe --version`.
+
 ## [0.1.0] - 2026-07-29
 
 ### Added

@@ -1,4 +1,9 @@
-use std::{collections::BTreeMap, io, path::Path, time::Duration};
+use std::{
+    collections::BTreeMap,
+    io::{self, IsTerminal},
+    path::Path,
+    time::Duration,
+};
 
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
@@ -27,14 +32,20 @@ const MEMORY_NOISE_FLOOR_BYTES: u64 = 1_048_576;
 const WALL_VARIABILITY_WARNING_PCT: f64 = 10.0;
 
 pub fn execute(cli: Cli) -> Result<ExitClass, BenchguardError> {
+    let format = cli.output_format();
+    let color = cli.color.enabled(
+        io::stdout().is_terminal(),
+        std::env::var_os("NO_COLOR").is_some(),
+        format,
+    );
     match cli.command {
-        Command::Record(args) => record(args),
-        Command::Check(args) => check(args),
-        Command::List(args) => list(args),
+        Command::Record(args) => record(args, color),
+        Command::Check(args) => check(args, color),
+        Command::List(args) => list(args, color),
     }
 }
 
-fn record(args: RecordArgs) -> Result<ExitClass, BenchguardError> {
+fn record(args: RecordArgs, color: bool) -> Result<ExitClass, BenchguardError> {
     let mut baseline = load_for_record(&args.run.file)?;
 
     let spec = command_from_target(&args.target);
@@ -96,6 +107,7 @@ fn record(args: RecordArgs) -> Result<ExitClass, BenchguardError> {
 
     emit(
         args.format,
+        color,
         &Report {
             schema_version: 1,
             status: ReportStatus::Ok,
@@ -137,7 +149,7 @@ fn record(args: RecordArgs) -> Result<ExitClass, BenchguardError> {
     Ok(ExitClass::Success)
 }
 
-fn check(args: CheckArgs) -> Result<ExitClass, BenchguardError> {
+fn check(args: CheckArgs, color: bool) -> Result<ExitClass, BenchguardError> {
     let baseline = BaselineStore::load(&args.file)?;
     let stored = baseline
         .benchmarks
@@ -228,6 +240,7 @@ fn check(args: CheckArgs) -> Result<ExitClass, BenchguardError> {
 
     emit(
         args.format,
+        color,
         &Report {
             schema_version: 1,
             status: report_status,
@@ -267,7 +280,7 @@ fn check(args: CheckArgs) -> Result<ExitClass, BenchguardError> {
     Ok(exit_class)
 }
 
-fn list(args: ListArgs) -> Result<ExitClass, BenchguardError> {
+fn list(args: ListArgs, color: bool) -> Result<ExitClass, BenchguardError> {
     let baseline = BaselineStore::load(&args.file)?;
     let benchmarks = baseline
         .benchmarks
@@ -306,6 +319,7 @@ fn list(args: ListArgs) -> Result<ExitClass, BenchguardError> {
 
     emit(
         args.format,
+        color,
         &Report {
             schema_version: 1,
             status: ReportStatus::Ok,
@@ -420,9 +434,9 @@ fn current_platform() -> PlatformId {
     }
 }
 
-fn emit(format: OutputFormat, report: &Report) {
+fn emit(format: OutputFormat, color: bool, report: &Report) {
     let rendered = match format {
-        OutputFormat::Human => HumanRenderer.render(report),
+        OutputFormat::Human => HumanRenderer::new(color).render(report),
         OutputFormat::Json => JsonRenderer.render(report),
     };
     print!("{rendered}");

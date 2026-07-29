@@ -19,8 +19,10 @@ assert.ok(existsSync(readme), "README.md must exist before its quick start can b
 
 const source = readFileSync(readme, "utf8");
 const documentedCommands = [
-  "benchguard record startup --runs 10 --max-time +10% -- my-app --version",
-  "benchguard check startup",
+  "benchguard record npm-build --runs 10 --max-time +10% npm run build",
+  "benchguard check npm-build",
+  "benchguard record bun-build --runs 10 --max-time +10% bun run build",
+  "benchguard check bun-build",
   "benchguard list",
   "benchguard help record",
 ];
@@ -74,7 +76,6 @@ const record = run([
   "10",
   "--max-time",
   "+10%",
-  "--",
   "my-app",
   "--version",
 ]);
