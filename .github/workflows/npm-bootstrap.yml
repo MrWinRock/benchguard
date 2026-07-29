@@ -1,0 +1,228 @@
+name: Bootstrap npm packages
+
+# One-time pre-tag setup:
+# 1. Own or create the @benchguard npm user or organization scope.
+# 2. Protect the npm-bootstrap environment with required reviewers.
+# 3. Limit the bootstrap token to the @benchguard scope with read-write package/scope permission.
+# 4. Enable bypass 2FA, use a short expiry, and run only while all package names are absent.
+# 5. Configure npm trusted publishing for release.yml with npm-production.
+#    Allowed trusted-publisher action: npm publish.
+# 6. Delete the NPM_TOKEN secret and revoke the token before tagging a release.
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type "BOOTSTRAP @benchguard PACKAGES" to continue
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-package-bootstrap
+  cancel-in-progress: false
+
+env:
+  BOOTSTRAP_VERSION: 0.0.0-bootstrap.0
+  CARGO_TERM_COLOR: always
+  BENCHGUARD_GITHUB_SERVER_URL: ${{ github.server_url }}
+  BENCHGUARD_GITHUB_REPOSITORY: ${{ github.repository }}
+
+jobs:
+  guard:
+    name: Confirm one-time bootstrap
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require exact confirmation
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        shell: bash
+        run: |
+          if [[ "$CONFIRMATION" != 'BOOTSTRAP @benchguard PACKAGES' ]]; then
+            echo "::error::Confirmation did not match; no package will be published." >&2
+            exit 1
+          fi
+
+  ci:
+    name: Full CI before bootstrap
+    needs: guard
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  registry-state:
+    name: Require a clean bootstrap state
+    needs: ci
+    runs-on: ubuntu-latest
+    outputs:
+      required: ${{ steps.state.outputs.required }}
+    steps:
+      - name: Check all package names together
+        id: state
+        shell: bash
+        run: |
+          existing=0
+          missing=0
+          for encoded in \
+            '%40benchguard%2Flinux-x64' \
+            '%40benchguard%2Fwin32-x64' \
+            '%40benchguard%2Fcli'
+          do
+            status="$(curl --silent --show-error --output /dev/null \
+              --write-out '%{http_code}' \
+              "https://registry.npmjs.org/$encoded")"
+            case "$status" in
+              200) existing=$((existing + 1)) ;;
+              404) missing=$((missing + 1)) ;;
+              *) echo "::error::npm registry returned HTTP $status." >&2; exit 1 ;;
+            esac
+          done
+          if [[ "$existing" -eq 3 ]]; then
+            echo "Every package already exists; bootstrap is unnecessary."
+            echo "required=false" >> "$GITHUB_OUTPUT"
+          elif [[ "$missing" -eq 3 ]]; then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Only some BenchGuard packages exist. Resolve the partial registry state manually; bootstrap will not publish." >&2
+            exit 1
+          fi
+
+  build-native:
+    name: Build bootstrap binary / ${{ matrix.target }}
+    needs: registry-state
+    if: needs.registry-state.outputs.required == 'true'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            executable: benchguard
+            artifact: bootstrap-linux
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            executable: benchguard.exe
+            artifact: bootstrap-windows
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install stable Rust
+        run: rustup toolchain install stable --profile minimal --target ${{ matrix.target }}
+      - name: Select stable Rust
+        run: rustup default stable
+      - name: Build stripped binary
+        run: cargo build --release --locked --target ${{ matrix.target }}
+      - name: Upload native binary
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.artifact }}
+          path: target/${{ matrix.target }}/release/${{ matrix.executable }}
+          if-no-files-found: error
+
+  publish-npm-native:
+    name: Bootstrap native npm packages
+    needs:
+      - registry-state
+      - build-native
+    if: needs.registry-state.outputs.required == 'true'
+    runs-on: ubuntu-latest
+    environment: npm-bootstrap
+    permissions:
+      contents: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install publishing Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Download Linux binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: bootstrap-linux
+          path: dist/linux
+      - name: Download Windows binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: bootstrap-windows
+          path: dist/windows
+      - name: Stage bootstrap packages
+        shell: bash
+        run: |
+          cp dist/linux/benchguard npm/linux-x64/benchguard
+          chmod 755 npm/linux-x64/benchguard
+          cp dist/windows/benchguard.exe npm/win32-x64/benchguard.exe
+          cp README.md LICENSE-MIT LICENSE-APACHE npm/linux-x64/
+          cp README.md LICENSE-MIT LICENSE-APACHE npm/win32-x64/
+          node .github/scripts/prepare-npm-manifests.mjs "$BOOTSTRAP_VERSION"
+      - name: Publish only absent native package names
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "${NODE_AUTH_TOKEN:-}" ]]; then
+            echo "::error::The npm-bootstrap environment must provide a short-lived NPM_TOKEN secret." >&2
+            exit 1
+          fi
+          publish_if_absent() {
+            local name="$1"
+            local encoded="$2"
+            local directory="$3"
+            local status
+            status="$(curl --silent --show-error --output /dev/null \
+              --write-out '%{http_code}' \
+              "https://registry.npmjs.org/$encoded")"
+            case "$status" in
+              200) echo "$name already exists; bootstrap is unnecessary." ;;
+              404) npm publish "$directory" --access public --tag bootstrap ;;
+              *) echo "::error::npm registry returned HTTP $status for $name." >&2; exit 1 ;;
+            esac
+          }
+          publish_if_absent \
+            '@benchguard/linux-x64' '%40benchguard%2Flinux-x64' ./npm/linux-x64
+          publish_if_absent \
+            '@benchguard/win32-x64' '%40benchguard%2Fwin32-x64' ./npm/win32-x64
+
+  publish-npm-cli:
+    name: Bootstrap npm CLI package
+    needs: publish-npm-native
+    runs-on: ubuntu-latest
+    environment: npm-bootstrap
+    permissions:
+      contents: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install publishing Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Stage CLI bootstrap package
+        shell: bash
+        run: |
+          cp README.md LICENSE-MIT LICENSE-APACHE npm/cli/
+          node .github/scripts/prepare-npm-manifests.mjs "$BOOTSTRAP_VERSION"
+      - name: Publish only an absent CLI package name
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "${NODE_AUTH_TOKEN:-}" ]]; then
+            echo "::error::The npm-bootstrap environment must provide a short-lived NPM_TOKEN secret." >&2
+            exit 1
+          fi
+          status="$(curl --silent --show-error --output /dev/null \
+            --write-out '%{http_code}' \
+            'https://registry.npmjs.org/%40benchguard%2Fcli')"
+          case "$status" in
+            200) echo "@benchguard/cli already exists; bootstrap is unnecessary." ;;
+            404) npm publish ./npm/cli --access public --tag bootstrap ;;
+            *) echo "::error::npm registry returned HTTP $status for @benchguard/cli." >&2; exit 1 ;;
+          esac
+          echo "Configure npm trusted publishing for workflow release.yml, environment npm-production, and allowed action npm publish; then delete the NPM_TOKEN secret and revoke its token."

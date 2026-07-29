@@ -1,0 +1,67 @@
+[package]
+name = "benchguard"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+description = "Performance regression budgets for any command"
+readme = "README.md"
+documentation = "https://docs.rs/benchguard"
+keywords = ["benchmark", "cli", "performance", "regression", "ci"]
+categories = ["command-line-utilities", "development-tools", "development-tools::profiling"]
+include = [
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/src/**",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/CONTRIBUTING.md",
+    "/CODE_OF_CONDUCT.md",
+    "/LICENSE-MIT",
+    "/LICENSE-APACHE",
+    "/docs/ci.md",
+    "/docs/json-format.md",
+    "/docs/releasing.md",
+    "/examples/benchguard.json",
+]
+
+[workspace]
+members = ["crates/benchguard-fixture"]
+resolver = "3"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+humantime = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3.20"
+thiserror = "2"
+time = { version = "=0.3.44", features = ["formatting", "parsing"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_JobObjects",
+    "Win32_System_ProcessStatus",
+    "Win32_System_Threading",
+] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+assert_cmd = "2"
+criterion = "=0.7.0"
+predicates = "3"
+
+[[bench]]
+name = "core"
+harness = false
+
+[profile.release]
+strip = "symbols"

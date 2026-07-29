@@ -1,0 +1,26 @@
+{
+  "name": "@benchguard/cli",
+  "version": "0.1.0",
+  "description": "Performance regression budgets for any command",
+  "type": "module",
+  "bin": {
+    "benchguard": "bin/benchguard.js"
+  },
+  "files": [
+    "bin/benchguard.js",
+    "README.md",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "optionalDependencies": {
+    "@benchguard/linux-x64": "0.1.0",
+    "@benchguard/win32-x64": "0.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT OR Apache-2.0"
+}

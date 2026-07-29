@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "benchmarks": {
+    "startup": {
+      "program": "my-app",
+      "args": [
+        "--version"
+      ],
+      "recorded_at": "2026-07-28T12:34:56Z",
+      "platform": {
+        "os": "linux",
+        "arch": "x86_64"
+      },
+      "benchguard_version": "0.1.0",
+      "warmups": 2,
+      "runs": 10,
+      "timeout_ns": null,
+      "wall_ns": {
+        "median": 12000000,
+        "mean": 12100000,
+        "standard_deviation": 300000,
+        "min": 11700000,
+        "max": 12700000,
+        "p50": 12000000,
+        "p95": 12700000,
+        "sample_count": 10
+      },
+      "cpu_ns": {
+        "median": 3000000,
+        "mean": 3100000,
+        "standard_deviation": 200000,
+        "min": 2800000,
+        "max": 3500000,
+        "p50": 3000000,
+        "p95": 3500000,
+        "sample_count": 10
+      },
+      "peak_memory_bytes": {
+        "median": 8388608,
+        "mean": 8400000,
+        "standard_deviation": 100000,
+        "min": 8257536,
+        "max": 8650752,
+        "p50": 8388608,
+        "p95": 8650752,
+        "sample_count": 10
+      },
+      "budgets": {
+        "wall_percent": 10.0,
+        "cpu_percent": null,
+        "peak_memory_percent": null
+      },
+      "noise_floors": {
+        "wall_ns": 1000000,
+        "cpu_ns": 1000000,
+        "peak_memory_bytes": 1048576
+      }
+    }
+  }
+}
