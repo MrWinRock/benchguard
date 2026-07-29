@@ -14,6 +14,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repository = resolve(fileURLToPath(new URL("../..", import.meta.url)));
+const normalizeLineEndings = (value) => value.replace(/\r\n?/g, "\n");
 const requiredFiles = [
   "README.md",
   "CHANGELOG.md",
@@ -50,8 +51,19 @@ for (const relative of [
   }
 }
 
-const jsonDocumentation = readFileSync(join(repository, "docs/json-format.md"), "utf8");
-const readmeDocumentation = readFileSync(join(repository, "README.md"), "utf8");
+const jsonDocumentation = normalizeLineEndings(
+  readFileSync(join(repository, "docs/json-format.md"), "utf8"),
+);
+const readmeDocumentation = normalizeLineEndings(
+  readFileSync(join(repository, "README.md"), "utf8"),
+);
+const crlfReadmeFixture = normalizeLineEndings(
+  readmeDocumentation.replaceAll("\n", "\r\n"),
+);
+assert.ok(
+  crlfReadmeFixture.includes("The separator `--` is\noptional"),
+  "README contract must accept Windows CRLF line endings",
+);
 for (const requiredText of [
   "benchguard record npm-build --runs 10 --max-time +10% npm run build",
   "benchguard record bun-build --runs 10 --max-time +10% bun run build",
