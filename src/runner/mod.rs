@@ -1,11 +1,5 @@
 use std::{ffi::OsString, time::Duration};
 
-#[cfg(not(any(target_os = "linux", windows)))]
-use std::{
-    process::{Command, Stdio},
-    time::Instant,
-};
-
 use crate::{domain::Sample, error::BenchguardError};
 
 #[cfg(any(target_os = "linux", test))]
@@ -65,29 +59,8 @@ fn run_once(spec: &CommandSpec, timeout: Option<Duration>) -> Result<Sample, Ben
 }
 
 #[cfg(not(any(target_os = "linux", windows)))]
-fn run_once(spec: &CommandSpec, _timeout: Option<Duration>) -> Result<Sample, BenchguardError> {
-    let started = Instant::now();
-    let status = Command::new(&spec.program)
-        .args(&spec.args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map_err(|source| BenchguardError::CommandLaunch { source })?;
-    let wall_ns = u64::try_from(started.elapsed().as_nanos())
-        .map_err(|_| BenchguardError::NumericOverflow)?;
-    let exit_code = status.code().unwrap_or(-1);
-
-    if !status.success() {
-        return Err(BenchguardError::CommandFailed { exit_code });
-    }
-
-    Ok(Sample {
-        wall_ns,
-        cpu_ns: 0,
-        peak_memory_bytes: 0,
-        exit_code,
-    })
+fn run_once(_spec: &CommandSpec, _timeout: Option<Duration>) -> Result<Sample, BenchguardError> {
+    unreachable!("unsupported targets are rejected by the crate-level compile error")
 }
 
 #[cfg(test)]

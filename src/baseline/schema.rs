@@ -64,6 +64,11 @@ impl BaselineFileV1 {
             if name.trim().is_empty() {
                 return Err(invalid("benchmark name must not be empty"));
             }
+            if name.chars().any(char::is_control) {
+                return Err(invalid(
+                    "benchmark name must not contain control characters",
+                ));
+            }
             benchmark.validate(name)?;
         }
 
@@ -122,9 +127,19 @@ impl BenchmarkV1 {
                 "benchmark {name:?} platform OS must not be empty"
             )));
         }
+        if self.platform.os.chars().any(char::is_control) {
+            return Err(invalid(format!(
+                "benchmark {name:?} platform OS must not contain control characters"
+            )));
+        }
         if self.platform.arch.trim().is_empty() {
             return Err(invalid(format!(
                 "benchmark {name:?} platform architecture must not be empty"
+            )));
+        }
+        if self.platform.arch.chars().any(char::is_control) {
+            return Err(invalid(format!(
+                "benchmark {name:?} platform architecture must not contain control characters"
             )));
         }
 
@@ -340,6 +355,32 @@ mod tests {
         baseline.benchmarks.insert(" \t".to_owned(), benchmark);
 
         assert_invalid_baseline(baseline.validate());
+    }
+
+    #[test]
+    fn rejects_control_characters_in_benchmark_name() {
+        for name in [
+            "forged\nwarning",
+            "terminal\u{1b}]8;;https://example.com\u{7}link",
+        ] {
+            let mut baseline = example_baseline();
+            let benchmark = baseline.benchmarks.remove("startup").unwrap();
+            baseline.benchmarks.insert(name.to_owned(), benchmark);
+
+            assert_invalid_baseline(baseline.validate());
+        }
+    }
+
+    #[test]
+    fn rejects_control_characters_in_platform_labels() {
+        let mut os_baseline = example_baseline();
+        benchmark_mut(&mut os_baseline).platform.os = "linux\nforged".to_owned();
+        assert_invalid_baseline(os_baseline.validate());
+
+        let mut arch_baseline = example_baseline();
+        benchmark_mut(&mut arch_baseline).platform.arch =
+            "x86_64\u{1b}]8;;https://example.com\u{7}".to_owned();
+        assert_invalid_baseline(arch_baseline.validate());
     }
 
     #[test]
