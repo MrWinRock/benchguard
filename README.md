@@ -10,10 +10,9 @@ BenchGuard v0.1 supports x86-64 Windows and Linux. It measures wall time,
 managed-scope CPU time, and peak memory, produces human or JSON reports, and
 uses stable exit codes for CI.
 
-> Release status: this repository is prepared for v0.1 publication. Package
-> and release download commands become available after maintainers complete
-> the [release checklist](docs/releasing.md); this document does not claim that
-> those external artifacts already exist.
+> Release status: v0.1.1 is being prepared through the
+> [release checklist](docs/releasing.md). The install commands below use the
+> latest published package once that process completes.
 
 ## Install
 
@@ -54,13 +53,20 @@ Node.js 18 or newer; the standalone binary does not require Node.js.
 ## Five-minute quick start
 
 From your project directory, choose a stable command whose performance matters.
-Here `my-app --version` is only an example:
+For example, record an npm production build:
 
 ```console
-benchguard record startup --runs 10 --max-time +10% -- my-app --version
-benchguard check startup
+benchguard record npm-build --runs 10 --max-time +10% npm run build
+benchguard check npm-build
 benchguard list
 benchguard help record
+```
+
+Record Bun builds as a separate benchmark when you use Bun:
+
+```console
+benchguard record bun-build --runs 10 --max-time +10% bun run build
+benchguard check bun-build
 ```
 
 `record` runs two unmeasured warm-ups and ten measured runs by default, then
@@ -81,6 +87,11 @@ Budgets use descriptive long options: `--max-time`, `--max-cpu`, and
 Use `benchguard help`, `benchguard help record`, or `<command> --help` for the
 complete current interface.
 
+Put every BenchGuard option before the target command. The separator `--` is
+optional, but remains supported when you prefer it; after the target starts,
+all remaining tokens—including hyphenated target arguments—belong to that
+target.
+
 ## Use in CI
 
 Record a baseline on the same operating system and CPU architecture used by
@@ -100,19 +111,20 @@ for a complete workflow and baseline-update policy.
 
 ## Commands are executed directly
 
-Everything after `--` is preserved as an executable plus an exact argument
-array. BenchGuard does not invoke a shell:
+The target is preserved as an executable plus an exact argument array.
+BenchGuard does not invoke a shell:
 
 ```console
-benchguard record arguments -- my-app "two words" ""
+benchguard record arguments my-app "two words" ""
+benchguard record legacy-arguments -- my-app "two words" ""
 ```
 
 Pipes, redirects, wildcard expansion, and environment expansion require an
 explicit shell:
 
 ```console
-benchguard record pipeline -- bash -c 'producer | consumer'
-benchguard record pipeline -- powershell -Command "producer | consumer"
+benchguard record pipeline bash -c 'producer | consumer'
+benchguard record pipeline powershell -Command "producer | consumer"
 ```
 
 Only use explicit shell execution with commands you trust; the chosen shell,
@@ -142,6 +154,13 @@ are 1 ms for wall time, 1 ms for CPU time, and 1 MiB for peak memory. A metric
 without a budget is reported as `unbudgeted` and cannot fail a check.
 Wall-time coefficient of variation above 10% produces a warning but does not
 change the exit code.
+
+Human reports automatically scale durations from nanoseconds through seconds
+and memory from bytes through GiB. Use `--color auto` (the default),
+`--color always`, or `--color never` to control terminal color. In automatic
+mode, BenchGuard colors only interactive terminals and honors `NO_COLOR` when
+it is present. JSON output is never colored and continues to use integer
+nanoseconds and bytes.
 
 On Windows, BenchGuard uses a Job Object for CPU and cleanup and samples the
 aggregate current working set of active Job members every 5 ms. On Linux v0.1

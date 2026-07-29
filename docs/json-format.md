@@ -8,6 +8,8 @@ BenchGuard uses two versioned JSON contracts:
 Both currently use `schema_version: 1`. Unsupported baseline schema versions
 are rejected with exit code `2`; v0.1 does not migrate them automatically.
 Durations are integer nanoseconds and memory is integer bytes.
+Human reports may scale those values for readability, but JSON always retains
+these integer base units and never includes terminal color sequences.
 
 ## Baseline schema v1
 
@@ -25,7 +27,7 @@ The top level contains a map keyed by unique, non-empty benchmark names:
         "os": "linux",
         "arch": "x86_64"
       },
-      "benchguard_version": "0.1.0",
+      "benchguard_version": "0.1.1",
       "warmups": 2,
       "runs": 10,
       "timeout_ns": null,

@@ -47,8 +47,8 @@ const cliManifest = JSON.parse(
 );
 assert.equal(cliManifest.engines.node, ">=18");
 assert.deepEqual(cliManifest.optionalDependencies, {
-  "@benchguard/linux-x64": "0.1.0",
-  "@benchguard/win32-x64": "0.1.0",
+  "@benchguard/linux-x64": "0.1.1",
+  "@benchguard/win32-x64": "0.1.1",
 });
 
 for (const [directory, os] of [
@@ -83,7 +83,7 @@ try {
   );
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /^benchguard 0\.1\.0/);
+  assert.match(result.stdout, /^benchguard 0\.1\.1/);
 } finally {
   rmSync(installedPackage, { recursive: true, force: true });
 }

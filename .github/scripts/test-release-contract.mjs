@@ -35,14 +35,14 @@ async function waitForPath(path, timeoutMilliseconds) {
 
 const verified = spawnSync(
   process.execPath,
-  [".github/scripts/verify-release-version.mjs", "v0.1.0"],
+  [".github/scripts/verify-release-version.mjs", "v0.1.1"],
   { cwd: repository, encoding: "utf8" },
 );
 assert.equal(verified.status, 0, verified.stderr);
 
 const rejected = spawnSync(
   process.execPath,
-  [".github/scripts/verify-release-version.mjs", "v0.1.1"],
+  [".github/scripts/verify-release-version.mjs", "v0.1.0"],
   { cwd: repository, encoding: "utf8" },
 );
 assert.notEqual(rejected.status, 0, "a mismatched release tag must fail");
@@ -288,6 +288,9 @@ for (const contract of [
   "- lts/*",
   "npm pack",
   "node npm/test-launcher.mjs",
+  "npx --no-install benchguard record npm-local -r 1 -w 0 node --version",
+  "& $shim record npm-powershell",
+  "node.exe --version",
   "cargo test --test failures linux_ -- --nocapture",
   "cygpath -u \"$RUNNER_TEMP\"",
   "cp README.md LICENSE-MIT LICENSE-APACHE npm/cli/",
