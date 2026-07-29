@@ -3,12 +3,19 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
 
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum OutputFormat {
     Human,
     Json,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum ColorMode {
+    Auto,
+    Always,
+    Never,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -34,11 +41,14 @@ impl FromStr for PercentBudget {
 #[derive(Debug, Parser)]
 #[command(
     name = "benchguard",
-    version,
+    version = "0.1.1",
     propagate_version = true,
-    about = "Record and enforce performance budgets for executable commands"
+    about = "Record and enforce performance budgets for executable commands",
+    after_help = "Notation:\n  <VALUE>   required\n  [VALUE]   optional\n  ...       repeatable\n\nExamples:\n  benchguard record npm-build --max-time +10% npm run build\n  benchguard check npm-build\n  benchguard record bun-build --max-time +10% bun run build\n  benchguard list --format json"
 )]
 pub struct Cli {
+    #[arg(long, value_enum, default_value_t = ColorMode::Auto, global = true)]
+    pub color: ColorMode,
     #[command(subcommand)]
     pub command: Command,
 }
@@ -81,10 +91,19 @@ pub fn requested_output_format(args: &[OsString]) -> OutputFormat {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Record or replace a performance baseline
+    #[command(
+        after_help = "Notation:\n  <VALUE>   required\n  [VALUE]   optional\n  ...       repeatable\n\nExamples:\n  benchguard record npm-build --max-time +10% npm run build\n  benchguard record bun-build --max-time +10% bun run build"
+    )]
     Record(RecordArgs),
     /// Measure a command and check it against a stored baseline
+    #[command(
+        after_help = "Notation:\n  <VALUE>   required\n  [VALUE]   optional\n  ...       repeatable\n\nExamples:\n  benchguard check npm-build"
+    )]
     Check(CheckArgs),
     /// List stored baselines without running commands
+    #[command(
+        after_help = "Notation:\n  <VALUE>   required\n  [VALUE]   optional\n  ...       repeatable\n\nExamples:\n  benchguard list --format json"
+    )]
     List(ListArgs),
 }
 
@@ -123,7 +142,7 @@ pub struct RecordArgs {
     #[arg(long, value_enum, default_value = "human")]
     pub format: OutputFormat,
     /// Executable followed by its exact arguments
-    #[arg(last = true, required = true)]
+    #[arg(required = true, trailing_var_arg = true, allow_hyphen_values = true)]
     pub target: Vec<String>,
 }
 
@@ -156,7 +175,7 @@ pub struct CheckArgs {
     #[arg(long, value_enum, default_value = "human")]
     pub format: OutputFormat,
     /// Optional executable and arguments; omit to use the stored command
-    #[arg(last = true)]
+    #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     pub target: Vec<String>,
 }
 
@@ -177,7 +196,7 @@ mod tests {
 
     use clap::Parser;
 
-    use super::{Cli, Command, OutputFormat, PercentBudget, requested_output_format};
+    use super::{Cli, ColorMode, Command, OutputFormat, PercentBudget, requested_output_format};
 
     // Catches accepting a unitless or malformed budget, losing the optional
     // leading plus sign, or permitting negative/non-finite percentages.
@@ -206,6 +225,87 @@ mod tests {
         assert_eq!(args.max_time, None);
         assert_eq!(args.format, OutputFormat::Human);
         assert!(args.target.is_empty());
+    }
+
+    #[test]
+    fn target_delimiter_is_optional_and_leading_hyphens_are_preserved() {
+        for record in [
+            [
+                "benchguard",
+                "record",
+                "build",
+                "npm",
+                "run",
+                "build",
+                "--silent",
+            ]
+            .as_slice(),
+            [
+                "benchguard",
+                "record",
+                "build",
+                "--",
+                "npm",
+                "run",
+                "build",
+                "--silent",
+            ]
+            .as_slice(),
+        ] {
+            let cli = Cli::try_parse_from(record).unwrap();
+            let Command::Record(args) = cli.command else {
+                panic!("expected record");
+            };
+            assert_eq!(args.target, ["npm", "run", "build", "--silent"]);
+        }
+
+        for check in [
+            [
+                "benchguard",
+                "check",
+                "build",
+                "bun",
+                "run",
+                "build",
+                "--watch",
+            ]
+            .as_slice(),
+            [
+                "benchguard",
+                "check",
+                "build",
+                "--",
+                "bun",
+                "run",
+                "build",
+                "--watch",
+            ]
+            .as_slice(),
+        ] {
+            let cli = Cli::try_parse_from(check).unwrap();
+            let Command::Check(args) = cli.command else {
+                panic!("expected check");
+            };
+            assert_eq!(args.target, ["bun", "run", "build", "--watch"]);
+        }
+    }
+
+    #[test]
+    fn color_accepts_documented_values_before_and_after_subcommands() {
+        for (value, expected) in [
+            ("auto", ColorMode::Auto),
+            ("always", ColorMode::Always),
+            ("never", ColorMode::Never),
+        ] {
+            for arguments in [
+                ["benchguard", "--color", value, "check", "build"],
+                ["benchguard", "check", "--color", value, "build"],
+            ] {
+                assert_eq!(Cli::try_parse_from(arguments).unwrap().color, expected);
+            }
+        }
+
+        assert!(Cli::try_parse_from(["benchguard", "--color", "invalid", "list"]).is_err());
     }
 
     // Catches missing public options or a parser that reconstructs the target
