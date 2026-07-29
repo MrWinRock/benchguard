@@ -215,9 +215,13 @@ try {
 }
 
 mkdirSync(installedPackage, { recursive: true });
-writeFileSync(`${installedPackage}/${executableName}`, "");
-if (process.platform !== "win32") {
-  chmodSync(`${installedPackage}/${executableName}`, 0o755);
+const failedExecutable = `${installedPackage}/${executableName}`;
+if (process.platform === "win32") {
+  writeFileSync(failedExecutable, "");
+} else {
+  const missingInterpreter = `${testRoot}/missing-native-interpreter`;
+  writeFileSync(failedExecutable, `#!${missingInterpreter}\n`);
+  chmodSync(failedExecutable, 0o755);
 }
 
 try {
