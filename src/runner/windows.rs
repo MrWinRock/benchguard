@@ -783,7 +783,7 @@ fn append_quoted_argument(
     let requires_quotes = wide.is_empty()
         || wide
             .iter()
-            .any(|unit| [b' ', b'\t', b'"'].map(u16::from).contains(unit));
+            .any(|unit| (*b" \t\"").map(u16::from).contains(unit));
     if !requires_quotes {
         command_line.extend(wide);
         return Ok(());
