@@ -331,6 +331,26 @@ for (const contract of [
 
 assert.match(
   release,
+  /workflow_dispatch:[\s\S]*?release_tag:/,
+  "release recovery must accept an existing tag",
+);
+assert.match(
+  release,
+  /BENCHGUARD_RELEASE_TAG:\s*\$\{\{\s*inputs\.release_tag\s*\|\|\s*github\.ref_name\s*\}\}/,
+  "tag pushes and manual recovery must select one release tag",
+);
+for (const command of ["view", "upload", "create"]) {
+  assert.match(
+    release,
+    new RegExp(
+      `gh release ${command}[^\\n]*--repo "\\\\$GITHUB_REPOSITORY"`,
+    ),
+    `gh release ${command} must have explicit repository context`,
+  );
+}
+
+assert.match(
+  release,
   /publish-npm-cli:[\s\S]*?\n    needs: publish-npm-native/,
   "the CLI package must wait for native npm packages",
 );
