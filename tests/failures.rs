@@ -184,34 +184,29 @@ fn linux_leader_exit_cleans_remaining_group_descendants() {
                 Err(benchguard::error::BenchguardError::CommandFailed { exit_code: 23 })
             ));
         }
+        let sleeper_pid = fs::read_to_string(&pid_path)
+            .unwrap()
+            .parse::<u32>()
+            .unwrap();
 
         thread::sleep(Duration::from_millis(25));
         assert!(
-            !fixture_sleeper_exists(&fixture_path()),
+            !fixture_sleeper_exists(sleeper_pid, &fixture_path()),
             "fixture sleeper survived leader exit {exit_code}"
         );
     }
 }
 
 #[cfg(target_os = "linux")]
-fn fixture_sleeper_exists(fixture: &std::path::Path) -> bool {
+fn fixture_sleeper_exists(pid: u32, fixture: &std::path::Path) -> bool {
     let expected_executable = fixture.as_os_str().as_encoded_bytes();
-    let Ok(entries) = fs::read_dir("/proc") else {
+    let Ok(command_line) = fs::read(format!("/proc/{pid}/cmdline")) else {
         return false;
     };
-
-    entries.flatten().any(|entry| {
-        let Ok(pid) = entry.file_name().to_string_lossy().parse::<u32>() else {
-            return false;
-        };
-        let Ok(command_line) = fs::read(format!("/proc/{pid}/cmdline")) else {
-            return false;
-        };
-        let mut args = command_line.split(|byte| *byte == 0);
-        args.next() == Some(expected_executable)
-            && args.next() == Some(b"sleep-ms")
-            && args.next() == Some(b"30000")
-    })
+    let mut args = command_line.split(|byte| *byte == 0);
+    args.next() == Some(expected_executable)
+        && args.next() == Some(b"sleep-ms")
+        && args.next() == Some(b"30000")
 }
 
 #[cfg(windows)]
