@@ -37,6 +37,52 @@ fn record_then_stored_check_passes_and_override_regression_exits_one() {
         .stdout(predicate::str::contains("PASS"));
 }
 
+// Catches an explicit color choice being ignored, Auto coloring redirected
+// command output, NO_COLOR being ignored, or JSON carrying terminal escapes.
+#[test]
+fn command_color_modes_follow_the_human_output_contract() {
+    let project = TestProject::new();
+    let fixture = fixture_path();
+
+    let run = |color: &str, format: Option<&str>, no_color: bool| {
+        let mut command = project.command();
+        command.args([
+            "--color", color, "record", "colors", "--runs", "1", "--warmup", "0",
+        ]);
+        if let Some(format) = format {
+            command.args(["--format", format]);
+        }
+        if no_color {
+            command.env("NO_COLOR", "1");
+        }
+        command
+            .arg(&fixture)
+            .args(["sleep-ms", "1"])
+            .output()
+            .unwrap()
+    };
+
+    let human_with_always = run("always", None, false);
+    assert!(human_with_always.status.success());
+    assert!(String::from_utf8_lossy(&human_with_always.stdout).contains("\u{1b}["));
+
+    let human_with_never = run("never", None, false);
+    assert!(human_with_never.status.success());
+    assert!(!String::from_utf8_lossy(&human_with_never.stdout).contains("\u{1b}["));
+
+    let redirected_auto = run("auto", None, false);
+    assert!(redirected_auto.status.success());
+    assert!(!String::from_utf8_lossy(&redirected_auto.stdout).contains("\u{1b}["));
+
+    let auto_with_no_color = run("auto", None, true);
+    assert!(auto_with_no_color.status.success());
+    assert!(!String::from_utf8_lossy(&auto_with_no_color.stdout).contains("\u{1b}["));
+
+    let json_with_always = run("always", Some("json"), false);
+    assert!(json_with_always.status.success());
+    assert!(!String::from_utf8_lossy(&json_with_always.stdout).contains("\u{1b}["));
+}
+
 // Catches retaining the temporary budget rejection, recording placeholder CPU
 // values, ignoring descendant CPU, or failing to let any metric regress the
 // overall command.

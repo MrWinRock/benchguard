@@ -185,7 +185,7 @@ mod tests {
     // needed to explain a budget decision.
     #[test]
     fn human_report_explains_every_wall_time_threshold_input() {
-        let output = HumanRenderer.render(&regression_report());
+        let output = HumanRenderer::new(false).render(&regression_report());
 
         for expected in [
             "startup",
@@ -271,6 +271,41 @@ mod tests {
                 }
             })
         );
+    }
+
+    // Catches styling leaking into explicitly plain reports or missing from the
+    // statuses and diagnostics that users scan when color is enabled.
+    #[test]
+    fn human_renderer_applies_color_only_when_enabled() {
+        let mut report = regression_report();
+        let colored = HumanRenderer::new(true).render(&report);
+        let plain = HumanRenderer::new(false).render(&report);
+
+        for expected in [
+            "\u{1b}[36mstartup\u{1b}[0m",
+            "\u{1b}[31mREGRESSION\u{1b}[0m",
+            "\u{1b}[32mPASS\u{1b}[0m",
+            "\u{1b}[33mwarning\u{1b}[0m",
+        ] {
+            assert!(
+                colored.contains(expected),
+                "missing {expected:?}: {colored}"
+            );
+        }
+        assert!(
+            colored.contains("\u{1b}["),
+            "missing ANSI styling: {colored}"
+        );
+        assert!(
+            !plain.contains("\u{1b}["),
+            "plain report was styled: {plain}"
+        );
+
+        report.benchmarks[0].status = BenchmarkStatus::Recorded;
+        report.benchmarks[0].cpu_time.status = BenchmarkStatus::Unbudgeted;
+        let status_output = HumanRenderer::new(true).render(&report);
+        assert!(status_output.contains("\u{1b}[32mRECORDED\u{1b}[0m"));
+        assert!(status_output.contains("\u{1b}[33mUNBUDGETED\u{1b}[0m"));
     }
 
     // Catches renaming or omitting any additive system-metric field, using an

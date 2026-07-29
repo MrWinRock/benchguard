@@ -1,8 +1,16 @@
 use std::fmt::Write;
 
-use super::{MetricReport, Report, ReportRenderer};
+use super::{BenchmarkStatus, MetricReport, Report, ReportRenderer};
 
-pub struct HumanRenderer;
+pub struct HumanRenderer {
+    color: bool,
+}
+
+const RESET: &str = "\x1b[0m";
+const GREEN: &str = "\x1b[32m";
+const RED: &str = "\x1b[31m";
+const YELLOW: &str = "\x1b[33m";
+const CYAN: &str = "\x1b[36m";
 
 const TIME_UNITS: &[(u128, &str)] = &[
     (1_000_000_000, "s"),
@@ -25,8 +33,8 @@ impl ReportRenderer for HumanRenderer {
             let _ = writeln!(
                 output,
                 "{}: {}",
-                benchmark.name,
-                benchmark.status.human_label()
+                self.style(CYAN, &benchmark.name),
+                self.status(benchmark.status)
             );
             let _ = writeln!(
                 output,
@@ -88,70 +96,100 @@ impl ReportRenderer for HumanRenderer {
                 format_unsigned(benchmark.absolute_floor_ns, super::MetricUnit::Nanoseconds)
             );
             let _ = writeln!(output, "  samples: {}", benchmark.sample_count);
-            render_metric(&mut output, "cpu time", &benchmark.cpu_time);
-            render_metric(&mut output, "peak memory", &benchmark.peak_memory);
+            self.render_metric(&mut output, "cpu time", &benchmark.cpu_time);
+            self.render_metric(&mut output, "peak memory", &benchmark.peak_memory);
         }
 
         for warning in &report.warnings {
-            let _ = writeln!(output, "warning [{}]: {}", warning.code, warning.message);
+            let _ = writeln!(
+                output,
+                "{} [{}]: {}",
+                self.style(YELLOW, "warning"),
+                warning.code,
+                warning.message
+            );
         }
 
         output
     }
 }
 
-fn render_metric(output: &mut String, label: &str, metric: &MetricReport) {
-    let _ = writeln!(output, "  {label}:");
-    let _ = writeln!(output, "    status: {}", metric.status.human_label());
-    let _ = writeln!(
-        output,
-        "    baseline: {}",
-        format_unsigned(metric.baseline, metric.unit)
-    );
-    match metric.current {
-        Some(current) => {
-            let _ = writeln!(
-                output,
-                "    current median: {}",
-                format_unsigned(current, metric.unit)
-            );
-        }
-        None => {
-            let _ = writeln!(output, "    current median: n/a");
+impl HumanRenderer {
+    pub const fn new(color: bool) -> Self {
+        Self { color }
+    }
+
+    fn style(&self, color: &str, text: &str) -> String {
+        if self.color {
+            format!("{color}{text}{RESET}")
+        } else {
+            text.to_owned()
         }
     }
-    match (metric.delta, metric.relative_delta_pct) {
-        (Some(delta), Some(relative)) => {
-            let _ = writeln!(
-                output,
-                "    delta: {} ({relative:+.2}%)",
-                format_signed(delta, metric.unit)
-            );
-        }
-        (Some(delta), None) => {
-            let _ = writeln!(
-                output,
-                "    delta: {} (n/a)",
-                format_signed(delta, metric.unit)
-            );
-        }
-        (None, _) => {
-            let _ = writeln!(output, "    delta: n/a");
-        }
+
+    fn status(&self, status: BenchmarkStatus) -> String {
+        let color = match status {
+            BenchmarkStatus::Recorded | BenchmarkStatus::Pass => GREEN,
+            BenchmarkStatus::Regression => RED,
+            BenchmarkStatus::Unbudgeted => YELLOW,
+            BenchmarkStatus::Baseline => CYAN,
+        };
+        self.style(color, status.human_label())
     }
-    match metric.budget_pct {
-        Some(budget) => {
-            let _ = writeln!(output, "    budget: +{budget:.2}%");
+
+    fn render_metric(&self, output: &mut String, label: &str, metric: &MetricReport) {
+        let _ = writeln!(output, "  {label}:");
+        let _ = writeln!(output, "    status: {}", self.status(metric.status));
+        let _ = writeln!(
+            output,
+            "    baseline: {}",
+            format_unsigned(metric.baseline, metric.unit)
+        );
+        match metric.current {
+            Some(current) => {
+                let _ = writeln!(
+                    output,
+                    "    current median: {}",
+                    format_unsigned(current, metric.unit)
+                );
+            }
+            None => {
+                let _ = writeln!(output, "    current median: n/a");
+            }
         }
-        None => {
-            let _ = writeln!(output, "    budget: none");
+        match (metric.delta, metric.relative_delta_pct) {
+            (Some(delta), Some(relative)) => {
+                let _ = writeln!(
+                    output,
+                    "    delta: {} ({relative:+.2}%)",
+                    format_signed(delta, metric.unit)
+                );
+            }
+            (Some(delta), None) => {
+                let _ = writeln!(
+                    output,
+                    "    delta: {} (n/a)",
+                    format_signed(delta, metric.unit)
+                );
+            }
+            (None, _) => {
+                let _ = writeln!(output, "    delta: n/a");
+            }
         }
+        match metric.budget_pct {
+            Some(budget) => {
+                let _ = writeln!(output, "    budget: +{budget:.2}%");
+            }
+            None => {
+                let _ = writeln!(output, "    budget: none");
+            }
+        }
+        let _ = writeln!(
+            output,
+            "    floor: {}",
+            format_unsigned(metric.absolute_floor, metric.unit)
+        );
     }
-    let _ = writeln!(
-        output,
-        "    floor: {}",
-        format_unsigned(metric.absolute_floor, metric.unit)
-    );
 }
 
 fn format_unsigned(value: u64, unit: super::MetricUnit) -> String {

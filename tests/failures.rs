@@ -105,6 +105,29 @@ fn json_errors_suppress_verbose_target_output() {
     assert_eq!(timeout_report["errors"][0]["code"], "timeout");
 }
 
+// Catches operational errors bypassing the resolved human color policy after
+// successful argument parsing.
+#[test]
+fn human_operational_errors_honor_explicit_color_modes() {
+    let project = TestProject::new();
+
+    let always = project
+        .command()
+        .args(["--color", "always", "record", "missing", "missing-program"])
+        .output()
+        .unwrap();
+    assert_eq!(always.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&always.stderr).contains("\u{1b}["));
+
+    let never = project
+        .command()
+        .args(["--color", "never", "record", "missing", "missing-program"])
+        .output()
+        .unwrap();
+    assert_eq!(never.status.code(), Some(2));
+    assert!(!String::from_utf8_lossy(&never.stderr).contains("\u{1b}["));
+}
+
 #[cfg(target_os = "linux")]
 #[test]
 fn linux_allocation_reports_at_least_thirty_mibibytes() {

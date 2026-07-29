@@ -18,6 +18,25 @@ pub enum ColorMode {
     Never,
 }
 
+impl ColorMode {
+    pub fn enabled(
+        self,
+        stdout_is_terminal: bool,
+        no_color_is_present: bool,
+        format: OutputFormat,
+    ) -> bool {
+        if format == OutputFormat::Json {
+            return false;
+        }
+
+        match self {
+            Self::Always => true,
+            Self::Never => false,
+            Self::Auto => stdout_is_terminal && !no_color_is_present,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PercentBudget(pub f64);
 
@@ -306,6 +325,18 @@ mod tests {
         }
 
         assert!(Cli::try_parse_from(["benchguard", "--color", "invalid", "list"]).is_err());
+    }
+
+    // Catches JSON output inheriting terminal colors, Auto ignoring a redirected
+    // stdout or NO_COLOR, or Always failing to override NO_COLOR for people.
+    #[test]
+    fn color_mode_resolves_the_documented_human_output_policy() {
+        assert!(ColorMode::Always.enabled(false, true, OutputFormat::Human));
+        assert!(!ColorMode::Never.enabled(true, false, OutputFormat::Human));
+        assert!(ColorMode::Auto.enabled(true, false, OutputFormat::Human));
+        assert!(!ColorMode::Auto.enabled(false, false, OutputFormat::Human));
+        assert!(!ColorMode::Auto.enabled(true, true, OutputFormat::Human));
+        assert!(!ColorMode::Always.enabled(true, false, OutputFormat::Json));
     }
 
     // Catches missing public options or a parser that reconstructs the target
