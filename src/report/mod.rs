@@ -190,16 +190,19 @@ mod tests {
         for expected in [
             "startup",
             "REGRESSION",
-            "baseline: 10000000 ns",
-            "current median: 80000000 ns",
-            "delta: +70000000 ns (+700.00%)",
+            "baseline: 10 ms",
+            "current median: 80 ms",
+            "delta: +70 ms (+700.00%)",
             "budget: +10.00%",
-            "floor: 1000000 ns",
+            "floor: 1 ms",
             "samples: 3",
             "cpu time:",
-            "baseline: 20000000 ns",
+            "baseline: 20 ms",
             "peak memory:",
-            "baseline: 8388608 bytes",
+            "baseline: 8 MiB",
+            "current median: 10 MiB",
+            "delta: +2 MiB (+25.00%)",
+            "floor: 1 MiB",
             "warning [high_variability]",
         ] {
             assert!(output.contains(expected), "missing {expected:?}: {output}");
@@ -218,7 +221,9 @@ mod tests {
         report.benchmarks[0].budget_pct = None;
         report.benchmarks[0].status = BenchmarkStatus::Unbudgeted;
 
-        let value: serde_json::Value = serde_json::from_str(&JsonRenderer.render(&report)).unwrap();
+        let json = JsonRenderer.render(&report);
+        assert!(!json.contains("\u{1b}["));
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert_eq!(value["schema_version"], 1);
         assert_eq!(value["status"], "ok");
         assert_eq!(
